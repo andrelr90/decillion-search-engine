@@ -1,0 +1,8 @@
+inverted_lists/index
+inverted_lists/inverted_list
+inverted_lists/inverted_list_id_terms_dict
+inverted_lists/pagerank.jsonl
+inverted_lists/urls
+bin/htmlParser.o
+bin/invertedList.o
+bin/queryProcessor.o

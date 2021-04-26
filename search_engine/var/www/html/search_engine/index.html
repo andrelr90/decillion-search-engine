@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Decillion: A search engine prototype</title>
+		<meta charset="utf-8">
+		<style>
+		    body {
+		        width: 100%;
+		        margin: 0 auto;
+		        font-family: Tahoma, Verdana, Arial, sans-serif;
+		    }
+
+		    header{
+		    	text-align: center;
+				padding: 10vh 0vh;
+				width:100%;   
+				color: white;
+				background-image: linear-gradient( 76.3deg,  rgba(44,62,78,1) 12.6%, rgba(69,103,131,1) 82.8% );
+		    }
+
+		    #searchForm{
+		    	max-width: 500px;
+		    	width: 80%;
+		    	position: relative;
+		    	margin: 0px auto;
+		    }
+		   	
+		    input {
+		    	padding: 12px 24px;
+		        background-color: white;
+		        font-size: 14px;
+		        line-height: 18px;
+		        
+		        color: #444;
+		        border-radius: 50px;
+		        border: 1px solid #444;
+		        backface-visibility: hidden;
+		        transform-style: preserve-3d;
+		        margin-left: 0;
+		        margin-right: 0;
+		        width: 90%;
+		    }
+		    input::placeholder {
+	            color: color(#444444 a(0.8));
+	        }
+	        
+	        input:hover,
+	        input:focus {
+	            outline: 0;
+	            box-shadow: 0 0 3px #888;
+	        }
+
+	        #searchButton{
+	        	background: transparent;
+	        	background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3C/svg%3E");
+		        background-repeat: no-repeat;
+		        background-size: 18px 18px;
+		        background-position: center center;
+		        border: none;
+		        width: 44px;
+		        height: 44px;
+		        position: absolute;
+		        right: 0px;
+		        top: 0px;
+		        cursor: pointer;
+		    }
+
+		    article{
+		    	max-width:90%;
+		    	margin: auto;
+		    	width: 800px;
+		    	margin-top: 45px;
+		    	margin-bottom: 45px;
+		    }
+
+		</style>
+		<script type="text/javascript" src="jquery-3.6.0.min.js"></script>
+	</head>
+	<body>
+		<header>
+			<span style="font-size: 45pt;">Decillion<sup style="font-size: 18pt">33</sup></span><br/>
+			<span>Search engine prototype</span>
+			<br/><br/>
+			<form id ="searchForm">
+				<input id="searchInput" placeholder="Search" autocomplete="off">
+				<button id="searchButton"></button>
+			</form>
+		</header>
+
+		<article>
+			<b>Presentation:</b><br/>
+			Decillion<sup>33</sup> is a prototype of search engine with backend in C++ developed in Brazil. Currently, the indexed collection contains 1,000,068 documents (82 gigabytes!) collected on the Brazilian web in December, 2020.
+			<br/><br/>
+			<b>Technologies:</b><br/>
+			This search engine is based on the <a href="https://en.wikipedia.org/wiki/Vector_space_model" target="_blank">Vectorial Space Model</a>, on <a href="https://pt.wikipedia.org/wiki/PageRank#:~:text=PageRank%E2%84%A2%20%C3%A9%20um%20algoritmo,de%20links%20apontando%20para%20ela." target="_blank">PageRank</a>, and also on a personal heuristic for term sequences matching. The respective signals obtained based on each of those approaches are outputted for each result, namely: Similarity, PageRank, and Positional.
+			<br/><br/>
+			<b>Credits:</b><br/>
+			The search engine was developed by <a href="https://www.linkedin.com/in/andre-rib-luis/" target="_blank">André Luís Ribeiro</a>, and it is publicly available at <a href="" target="_blank">GitHub</a>. The collection was created by <a href="https://www.kaggle.com/aldebbaran/" target="_blank">Celso França</a> for the Information Retrieval course offered at UFMG by <a href="https://www.dcc.ufmg.br/dcc/?q=pt-br/berthier" target="_blank">professor Berthier Ribeiro Neto</a> in 2020, and it is available at <a href="https://www.kaggle.com/aldebbaran/html-br-collection" target="_blank">Kaggle</a>.<br/><br/>
+			<section style="text-align: center; margin-top: 40px;">
+				<a href="https://www.linkedin.com/in/andre-rib-luis/" target="_blank"><img src="images/linkedin.png" style="width: 50px; height: 50px;"></a>
+				<a href="https://github.com/andrelr90" target="_blank"><img src="images/github.png" style="width: 50px; height: 50px;"></a>
+			</section>
+		</article>
+
+		<script>
+			// Portuguese stopwords. Based on the size of the respective block for each of them in the index.
+			var stopwords = ["de", "De", "e", "E", "é", "É", "a", "A", "as", "As", "do", "Do", "dos", "Dos", "o", "O", "os", "Os", "da", "Da", "das", "Das", "em", "Em", "que", "Que", "para", "Para"];
+			function dropStopwords(query){
+				// Currently the backend takes in count all stopwords. This slows a lot the retrieval process in secondary memory. Ideally, stopwords would be handled by the backend, but handling stopwords in a smarter way is a future project.
+				query = query.split(' ');
+				finalQuery = "";
+				for (var i in query){
+					if (!stopwords.includes(query[i])){
+						finalQuery+=query[i]+" ";
+					} 
+				}
+				console.log("Query without stopwords: "+finalQuery);
+				return finalQuery;
+			}
+
+			$('#searchForm').submit(function (event) {
+				event.preventDefault();
+				$.ajax({
+					dataType:'json',
+    				type: 'POST',
+    				url: "http://localhost:800/query?json=true",
+    				data: dropStopwords($("#searchInput").val()),
+    				beforeSend: function(){
+    					$("article").html("<section style=\"width: 100%; text-align:center;\"> <img src=\"images/loading.gif\" style=\"width:150px; height:150px;\"> </section>");
+    				},
+    				success: function(response) {
+    					console.log(response);
+    					var htmlArt = "";
+    					if (response["error"] == true){
+    						htmlArt+="Please, try again.<br/><br/>";
+    						htmlArt+="<a href=\".\">Back to presentation</a>";
+    						$("article").html(htmlArt);
+    						return;
+    					}
+    					
+    					htmlArt += response["n_results"]+" results in "+response["time"]+" seconds. Showing top 5 results."
+    					htmlArt+="<br/><br/>";
+    					for (var i in response["results"]){
+    						console.log(response["results"][i]);
+    						htmlArt+="<a href=\""+response["results"][i]["url"]+"\" target=\"_blank\">"+response["results"][i]["url"]+"</a><br/>";
+    						var weight = parseInt(response["results"][i]["weight"])/12.0;
+    						htmlArt+= "Weight: " + weight.toFixed(4)
+    								+ " - PageRank: "+response["results"][i]["pagerank"].toFixed(4) + "<br/>"
+    								+ " Similarity: "+response["results"][i]["sim"].toFixed(4)
+    								+ " - Positional: "+response["results"][i]["positional"].toFixed(4);
+    						htmlArt+="<br/><br/>";
+    					}
+						htmlArt+="<a href=\".\">Back to presentation</a>";
+    					$("article").html(htmlArt);
+    				},
+    				error: function(response) {
+    					alert("Critical error. Check the console.");
+    					var htmlArt = "";
+    					htmlArt+="Please, try again.<br/><br/>";
+						htmlArt+="<a href=\".\">Back to presentation</a>";
+						$("article").html(htmlArt);
+    					console.log(response);
+    				},
+    			});
+			});
+		</script>
+	</body>
+</html>
