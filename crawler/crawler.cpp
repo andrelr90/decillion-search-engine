@@ -18,6 +18,21 @@
 #include <exception>
 #include <signal.h>
 
+std::mutex time_lock;
+const std::string currentDateTime() {
+    time_lock.lock();
+    time_t     now = time(0);
+    struct tm  tstruct;
+    char       buf[80];
+    tstruct = *localtime(&now);
+    // Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
+    // for more information about date/time format
+    strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
+    time_lock.unlock();
+
+    return buf;
+}
+
 class UrlCrawler {
     private:
         int size;
@@ -91,9 +106,9 @@ std::mutex level0pages_lock, full_info_lock, brCounter_lock; // full_pages_size_
 
 bool max_number_pages_reached(int crawlerId, CkSpider &spider){
     success_counter_lock.lock();
-    if(success_counter == limit){
+    if(success_counter >= limit){
         success_counter_lock.unlock();
-        std::cout << "From crawler " + std::to_string(crawlerId) + ":\n" + "Max number of pages reached. Returning. \r\n\n";
+        std::cout << "From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + "Max number of pages reached. Returning. \r\n\n";
         return true;
     }
     success_counter_lock.unlock();
@@ -133,7 +148,6 @@ UrlCrawler get_next_url(int crawlerId, CkSpider &spider){
     while(collecting.find(std::string(spider.getUrlDomain(url.getUrl().c_str()))) != collecting.end() and longTermScheduler.size() != 0){
         // The domain is already being crawled by other thread.
         // std::cout << "From crawler " + std::to_string(crawlerId) + ":\n" + "Domain " + spider.getUrlDomain(url.getUrl().c_str()) + " is already being crawled. \r\n\n";
-
         popped.push_back(url);
         url = longTermScheduler.top();
         url.incrementSize();
@@ -164,7 +178,7 @@ bool check_already_collected(int crawlerId, CkSpider &spider){
         if(spider.get_NumUnspidered() != 0) 
             std::string(spider.getUnspideredUrl(0));
     }catch(std::exception& e){
-        std::cout << ("From crawler " + std::to_string(crawlerId) + ":\n" + "Exception detected in url.\n\n") ;
+        std::cout << ("From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + "Exception detected in url.\n\n") ;
         urlError = true;
     }
 
@@ -185,7 +199,7 @@ void write_file_quote(std::string text, std::ofstream& file){
     for (unsigned int i=0; i< text.size(); i++){
         if(text[i] == '"')
             file << "\\\"";
-        else if (text[i] != '\n' && text[i] != '\t')
+        else if (text[i] != '\n' && text[i] != '\t' && text[i] != '\r')
             file << text[i];
     }
 }
@@ -200,7 +214,7 @@ bool save_page(int crawlerId, CkSpider &spider){
     success_counter_lock.unlock();
 
     // Show the URL of the page just spidered.
-    std::cout << "From crawler " + std::to_string(crawlerId) + ":\n" + "URL " + std::to_string(local_success_counter) + ": " + spider.lastUrl() + "\r\n\n";
+    std::cout << "From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + "URL " + std::to_string(local_success_counter) + ": " + spider.lastUrl() + "\r\n\n";
 
     if (!jsonl){
         std::ofstream output_file("data/" + std::to_string(local_success_counter) + ".html");
@@ -240,13 +254,13 @@ bool save_page(int crawlerId, CkSpider &spider){
 
 void update_longTermScheduler(int crawlerId, CkSpider &spider){
     int n_outbound = spider.get_NumOutboundLinks();
-    std::cout << ("From crawler " + std::to_string(crawlerId) + ":\n" + "Adding " + std::to_string(n_outbound) + " pages to longTermScheduler.\n\n") ;
+    std::cout << ("From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + "Adding " + std::to_string(n_outbound) + " pages to longTermScheduler.\n\n") ;
     for(int i=0; i < n_outbound; ++i){
         try{
             std::string domain_string_teste(spider.getUrlDomain(spider.getOutboundLink(i)));
             std::string outbound_string_teste(spider.getOutboundLink(i));
         }catch (std::exception& e){
-            std::cout << ("From crawler " + std::to_string(crawlerId) + ":\n" + "Exception detected in url.\n\n") ;
+            std::cout << ("From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + "Exception detected in url.\n\n") ;
             continue;
         }
         std::string outbound_string(spider.getOutboundLink(i));
@@ -255,6 +269,9 @@ void update_longTermScheduler(int crawlerId, CkSpider &spider){
         longTermScheduler_lock.lock();
         longTermScheduler.push(outbound_url);
         longTermScheduler_lock.unlock();
+
+        if (max_number_pages_reached(crawlerId, spider))
+            return;
     }
     spider.ClearOutboundLinks();
 }
@@ -263,8 +280,8 @@ void shortTermScheduler(int crawlerId){
     while(true){
         CkSpider spider;
         spider.put_Utf8(true);
-        spider.put_ConnectTimeout(10);
-        spider.put_ReadTimeout(10);
+        spider.put_ConnectTimeout(7);
+        spider.put_ReadTimeout(7);
         spider.AddAvoidPattern("*facebook.com*");
         spider.AddAvoidPattern("*instagram.com*");
         spider.AddAvoidPattern("*twitter.com*");
@@ -280,7 +297,7 @@ void shortTermScheduler(int crawlerId){
         std::string url = urlCustomObject.getUrl();
         
         if(url == "URLError"){
-            std::cout << "From crawler " + std::to_string(crawlerId) + ":\n" + "All available domains are already being crawled. \r\n\n";
+            std::cout << "From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + "All available domains are already being crawled. \r\n\n";
             
             spider.SleepMs(2000);
             continue;
@@ -291,7 +308,7 @@ void shortTermScheduler(int crawlerId){
         if(collected.find(std::string(spider.canonicalizeUrl(url.c_str()))) == collected.end()){
             collecting.insert(std::string(spider.getUrlDomain(url.c_str())));
         } else{
-            std::cout << "From crawler " + std::to_string(crawlerId) + ":\nPage already collected. Continuing. \r\n\n";
+            std::cout << "From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + "Page already collected. Continuing. \r\n\n";
             collected_lock.unlock();
             collecting_lock.unlock();
             continue;
@@ -299,7 +316,7 @@ void shortTermScheduler(int crawlerId){
         collected_lock.unlock();
         collecting_lock.unlock();
         
-        std::cout << "From crawler " + std::to_string(crawlerId) + ":\n" + "Getting " + url + " from longTermScheduler. \r\n\n";
+        std::cout << "From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + "Getting " + url + " from longTermScheduler. \r\n\n";
 
         spider.Initialize(spider.getUrlDomain(url.c_str()));
         spider.AddUnspidered(spider.canonicalizeUrl(url.c_str()));
@@ -339,7 +356,7 @@ void shortTermScheduler(int crawlerId){
 
                     level0 = false;
                     level1 = spider.get_NumUnspidered();
-                    std::cout << "From crawler " + std::to_string(crawlerId) + ":\n" + std::to_string(level1) + " level 1 pages will be crawled. \r\n\n";
+                    std::cout << "From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + std::to_string(level1) + " level 1 pages will be crawled. \r\n\n";
 
                     level0_counter_lock.lock();
                     level0_counter++;
@@ -359,7 +376,7 @@ void shortTermScheduler(int crawlerId){
                 }
 
                 if(!save_page(crawlerId, spider)) { // Tries to save the page.
-                    std::cout << "From crawler " + std::to_string(crawlerId) + ":\nCrawler Stopped. \r\n\n";
+                    std::cout << "From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + "Crawler Stopped. \r\n\n";
                     return;
                 } else{
                     full_info_lock.lock();
@@ -381,9 +398,9 @@ void shortTermScheduler(int crawlerId){
                 //some error happened
                 if(!already_collected){
                     // std::cout << "From crawler " + std::to_string(crawlerId) + ":\n" + spider.lastErrorText() + "\r\n\n";
-                    std::cout << "From crawler " + std::to_string(crawlerId) + ":\nChilkat Error\r\n\n";
+                    std::cout << "From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + "Chilkat Error\r\n\n";
                 } else{
-                    std::cout << "From crawler " + std::to_string(crawlerId) + ":\nPage already collected 2. Continuing. \r\n\n";
+                    std::cout << "From crawler " + std::to_string(crawlerId) + " - " + currentDateTime() + ":\n" + "Page already collected 2. Continuing. \r\n\n";
                     if (spider.get_NumUnspidered() != 0)
                         spider.SkipUnspidered(0);
                 }
@@ -448,16 +465,8 @@ int main(int argc, char *argv[]){
 
     auto end_program = std::chrono::high_resolution_clock::now();
     double program_time_taken = std::chrono::duration_cast<std::chrono::nanoseconds>(end_program - start_program).count();
-    program_time_taken*=1e-9;       //Converting nanoseconds to seconds
-    time_taken = time_taken* 1e-9;  //Converting nanoseconds to seconds
-
-    std::cout<<"\n\n---------------------------------\nLevel 0 pages report:\n";
-    for (auto& i: level0pages) {
-        std::cout   << "- "<< i.first << ": \n"
-                    << "Level 1 pages: " << (std::get<0>(i.second)) << "\n"
-                    << "Average time for crawling:" << (std::get<1>(i.second))*1e-9/float((std::get<0>(i.second))+1) << " second (s) \n"
-                    << "Average size: " << (std::get<2>(i.second))/8.0/1024.0/float((std::get<0>(i.second))+1) << " kb\n\n";
-    }
+    program_time_taken *= 1e-9;       //Converting nanoseconds to seconds
+    time_taken *= 1e-9;  //Converting nanoseconds to seconds
 
     std::cout<<"\n\n---------------------------------\nReport:\n";
     std::cout<<"Average time for crawling a page: "<<(success_counter == 0 ? 0 : time_taken/(success_counter))<<std::setprecision(5)<<" second(s).\n";
