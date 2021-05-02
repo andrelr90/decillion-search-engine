@@ -45,4 +45,5 @@ status:
 
 
 clean:
-	rm -rf $(BIN)/*
+	rm -rf $(BIN)/*; \
+	touch $(BIN)/.gitignore
