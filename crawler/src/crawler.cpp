@@ -136,8 +136,16 @@ bool check_already_collected(int crawlerId, CkSpider &spider){
 
 void write_file_quote(std::string text, std::ofstream& file){
     for (unsigned int i=0; i< text.size(); i++){
-        if(text[i] == '"')
-            file << "\\\"";
+        if(text[i] == '"'){
+            file << '\\';
+            file << '"';
+        }
+        else if(text[i] == '\\')
+            file << "\\\\";
+        else if (text[i] == '\b')
+            file << "\\\b";
+        else if (text[i] == '\f')
+            file << "\\\f";
         else if (text[i] != '\n' && text[i] != '\t' && text[i] != '\r')
             file << text[i];
     }
@@ -178,7 +186,7 @@ bool save_page(int crawlerId, CkSpider &spider){
 
         collection_file << "\"html_content\": \"";
         write_file_quote(spider.lastHtml(), collection_file);
-        collection_file<< "\"}\n";
+        collection_file<< "\"}\r\n";
 
         collection_file.close();
 
